@@ -26,10 +26,10 @@ Diagram:
 
 ## Installation
 
-- Connect your micro controller to arduino iot cloud.
-- Add variables temp_sensor_one & temp_sensor_two as Read Only float values and set interval to 10 seconds.
-- Configure network settings.
+- Plug in your Arduino Nano 33 IoT to your computer and start the arduino IDE.
+- Add the ArduinoMqttClient, WiFiNINA and OneWire library.
 - Go to sketch and edit the according to IoT-Assignment.ino.
+- A good practice is to use arduino_secrets like done in this project.
 - Upload the sketch to your device.
 
 ## Components
