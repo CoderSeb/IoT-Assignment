@@ -12,11 +12,11 @@ This was managed using the Arduino nano 33 IoT microcontroller and 2x DS18B20 wa
 
 Overview (device on top with the temperature sensor cables going off on left and right):
 
-![Full image](./img/full_img_terrarium.jpg)
+<img src="./img/full_img_terrarium.jpg" width="800">
 
 View of the device from top (I finally opted to use the micro usb cable as the device drained a 9V battery overnight):
 
-![Birdseye view of device](./img/birdseye_device.jpg)
+<img src="./img/birdseye_device.jpg" width="600">
 
 ## Curcuit
 
