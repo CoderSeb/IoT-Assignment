@@ -37,5 +37,6 @@ Diagram:
 - 1x Arduino Nano 33 IoT (Microcontroller)
 - 2x DS18B20 (Temperature sensors)
 - 1x 4.7k resistor
+- 2x Diodes
 - 1x Breadboard
 - ?x Jumper wires

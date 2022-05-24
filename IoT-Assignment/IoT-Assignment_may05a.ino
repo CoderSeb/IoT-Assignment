@@ -4,15 +4,20 @@
 #include <ArduinoMqttClient.h>
 #include <OneWire.h>
 
-
 WiFiClient wifi;
 MqttClient mqttClient(wifi);
 OneWire  ds(4);
 
+int led_1 = 7;
+int led_2 = 8;
+
 char broker[] = "18.195.54.50";
 int port = 1883;
-char topic[] = "terraTemps";
+char topic1[] = "terraTemps/1";
+char topic2[] = "terraTemps/2";
 char clientID[] = "terraTempClient";
+
+int count = 0;
 
 void setup() {
   // Initialize serial and wait for port to open:
@@ -20,6 +25,8 @@ void setup() {
   // This delay gives the chance to wait for a Serial Monitor without blocking if none is found
   delay(1500);
   pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(led_1, OUTPUT);
+  pinMode(led_2, OUTPUT);
 
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print("Connecting to ");
@@ -39,7 +46,9 @@ void setup() {
   }
   Serial.println("connected to broker");
   
-  digitalWrite(LED_BUILTIN, LOW);
+  digitalWrite(LED_BUILTIN, HIGH);
+  digitalWrite(led_1, LOW);
+  digitalWrite(led_2, LOW);
 }
 
 void loop() {
@@ -67,7 +76,7 @@ void loop() {
   for( i = 0; i < 8; i++) {
     Serial.write(' ');
     Serial.print(addr[i], HEX);
-    romString += String(addr[i], HEX);
+    romString += String(addr[i], HEX); // Coverting ROM to string for unique identification.
   }
 
   if (OneWire::crc8(addr, 7) != addr[7]) {
@@ -99,7 +108,7 @@ void loop() {
   ds.select(addr);
   ds.write(0x44, 1);        // start conversion, with parasite power on at the end
   
-  delay(10000);
+  delay(5000);
   digitalWrite(LED_BUILTIN, HIGH);     // maybe 750ms is enough, maybe not
   // we might do a ds.depower() here, but the reset will take care of it.
   
@@ -136,7 +145,6 @@ void loop() {
     if (cfg == 0x00) raw = raw & ~7;  // 9 bit resolution, 93.75 ms
     else if (cfg == 0x20) raw = raw & ~3; // 10 bit res, 187.5 ms
     else if (cfg == 0x40) raw = raw & ~1; // 11 bit res, 375 ms
-    //// default is 12 bit resolution, 750 ms conversion time
   }
   celsius = (float)(raw / 16.0);
   fahrenheit = celsius * 1.8 + 32.0;
@@ -144,23 +152,34 @@ void loop() {
   Serial.print(celsius);
   Serial.print(" Celsius, ");
   Serial.println(romString);
-  
+ 
   if (romString == "28c44c2d006c") {
+    digitalWrite(led_1, HIGH);
     celsius = celsius - 1;
-    String payload = romString + "--" + celsius;
-    Serial.println("Data set to " + payload);
-    mqttClient.beginMessage(topic);
-    mqttClient.print(payload);
+    mqttClient.beginMessage(topic1);
+    mqttClient.print("temperature:");
+    mqttClient.print(celsius);
     mqttClient.endMessage();
+    count++;
   } else {
+    digitalWrite(led_2, HIGH);
     celsius = celsius + 1;
-    String payload = romString + "--" + celsius;
-    Serial.println("Data set to " + payload);
-    mqttClient.beginMessage(topic);
-    mqttClient.print(payload);
+    mqttClient.beginMessage(topic2);
+    mqttClient.print("temperature:");
+    mqttClient.print(celsius);
     mqttClient.endMessage();
+    count++;
   }
-  digitalWrite(LED_BUILTIN, LOW);
+  if (count == 2) {
+    delay(2000);
+    digitalWrite(LED_BUILTIN, LOW);
+    digitalWrite(led_1, LOW);
+    digitalWrite(led_2, LOW);
+    delay(60000);
+    digitalWrite(LED_BUILTIN, HIGH);
+    count = 0;
+  }
+  
 }
 
 boolean connectToBroker() {
@@ -169,6 +188,7 @@ boolean connectToBroker() {
     Serial.println(mqttClient.connectError());
     return false;
   }
-  mqttClient.subscribe(topic);
+  mqttClient.subscribe(topic1);
+  mqttClient.subscribe(topic2);
   return true;
 }
