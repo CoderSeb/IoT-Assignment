@@ -20,14 +20,14 @@ char clientID[] = "terraTempClient";
 int count = 0;
 
 void setup() {
-  // Initialize serial and wait for port to open:
   Serial.begin(9600);
-  // This delay gives the chance to wait for a Serial Monitor without blocking if none is found
+
   delay(1500);
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(led_1, OUTPUT);
   pinMode(led_2, OUTPUT);
 
+  // Making sure wifi is connected.
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print("Connecting to ");
     Serial.println(SECRET_SSID);
@@ -56,14 +56,17 @@ void loop() {
     Serial.println("reconnecting");
     connectToBroker();
   }
+
+  // --------------------GET SENSOR "ID"-------------------
+  // Heavily inspired code from: https://forum.arduino.cc/t/multiple-ds18b20-temperature-sensors-on-one-bus/139955/5
   byte i;
   byte present = 0;
   byte type_s;
   byte data[12];
   byte addr[8];
-  float celsius, fahrenheit;
+  float celsius;
   String romString = "";
-  
+
   if ( !ds.search(addr)) {
     Serial.println("No more addresses.");
     Serial.println();
@@ -79,54 +82,22 @@ void loop() {
     romString += String(addr[i], HEX); // Coverting ROM to string for unique identification.
   }
 
-  if (OneWire::crc8(addr, 7) != addr[7]) {
-      Serial.println("CRC is not valid!");
-      return;
-  }
-  Serial.println();
- 
-  // the first ROM byte indicates which chip
-  switch (addr[0]) {
-    case 0x10:
-      Serial.println("  Chip = DS18S20");  // or old DS1820
-      type_s = 1;
-      break;
-    case 0x28:
-      Serial.println("  Chip = DS18B20");
-      type_s = 0;
-      break;
-    case 0x22:
-      Serial.println("  Chip = DS1822");
-      type_s = 0;
-      break;
-    default:
-      Serial.println("Device is not a DS18x20 family device.");
-      return;
-  } 
-
   ds.reset();
   ds.select(addr);
-  ds.write(0x44, 1);        // start conversion, with parasite power on at the end
-  
-  delay(5000);
-  digitalWrite(LED_BUILTIN, HIGH);     // maybe 750ms is enough, maybe not
-  // we might do a ds.depower() here, but the reset will take care of it.
-  
-  present = ds.reset();
-  ds.select(addr);    
-  ds.write(0xBE);         // Read Scratchpad
+  ds.write(0x44, 1); // start conversion, with parasite power on at the end
 
-  Serial.print("  Data = ");
-  Serial.print(present, HEX);
-  Serial.print(" ");
-  for ( i = 0; i < 9; i++) {           // we need 9 bytes
+  delay(5000);
+  digitalWrite(LED_BUILTIN, HIGH);
+
+  present = ds.reset();
+  ds.select(addr);
+  ds.write(0xBE);
+
+  // --------------------READ SENSOR DATA-------------------
+
+  for ( i = 0; i < 9; i++) {
     data[i] = ds.read();
-    Serial.print(data[i], HEX);
-    Serial.print(" ");
   }
-  Serial.print(" CRC=");
-  Serial.print(OneWire::crc8(data, 8), HEX);
-  Serial.println();
 
   // Convert the data to actual temperature
   // because the result is a 16 bit signed integer, it should
@@ -146,13 +117,15 @@ void loop() {
     else if (cfg == 0x20) raw = raw & ~3; // 10 bit res, 187.5 ms
     else if (cfg == 0x40) raw = raw & ~1; // 11 bit res, 375 ms
   }
+
+  // Printing sensor data
   celsius = (float)(raw / 16.0);
-  fahrenheit = celsius * 1.8 + 32.0;
   Serial.print("  Temperature = ");
   Serial.print(celsius);
   Serial.print(" Celsius, ");
   Serial.println(romString);
- 
+
+  // --------------------SEND DATA TO BROKER-------------------
   if (romString == "28c44c2d006c") {
     digitalWrite(led_1, HIGH);
     celsius = celsius - 1;
@@ -170,6 +143,8 @@ void loop() {
     mqttClient.endMessage();
     count++;
   }
+
+  // --------------------"SHUTDOWN" FOR 1 MINUTE-------------------
   if (count == 2) {
     delay(2000);
     digitalWrite(LED_BUILTIN, LOW);
@@ -179,16 +154,14 @@ void loop() {
     digitalWrite(LED_BUILTIN, HIGH);
     count = 0;
   }
-  
 }
 
+// CONNECTING TO BROKER
 boolean connectToBroker() {
   if (!mqttClient.connect(broker, port)) {
     Serial.print("MOTT connection failed. Error no: ");
     Serial.println(mqttClient.connectError());
     return false;
   }
-  mqttClient.subscribe(topic1);
-  mqttClient.subscribe(topic2);
   return true;
 }
